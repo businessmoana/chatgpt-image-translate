@@ -1,6 +1,6 @@
 const { parentPort } = require('worker_threads');
 const { OpenAI } = require('openai');
-const {toFile} = require('openai')
+const { toFile } = require('openai')
 const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
@@ -22,24 +22,24 @@ function loadPrompt(promptName) {
     }
 }
 
-async function detectTextFromImage(imagePath){
+async function detectTextFromImage(imagePath) {
     const promptContent = loadPrompt('detect_text_prompt');
     const imageBuffer = await fs.promises.readFile(imagePath);
     const base64Image = imageBuffer.toString('base64');
     const imageUrl = `data:image/png;base64,${base64Image}`;
     const response = await openai.chat.completions.create({
-        model:'gpt-4o',
-        messages:[
+        model: 'gpt-4o',
+        messages: [
             {
-                role:'user',
-                content:[
+                role: 'user',
+                content: [
                     {
-                        type:'text',
+                        type: 'text',
                         text: promptContent
                     },
                     {
-                        type:'image_url',
-                        image_url:{'url':imageUrl}
+                        type: 'image_url',
+                        image_url: { 'url': imageUrl }
                     }
                 ]
             }
@@ -52,6 +52,35 @@ async function translateText(detectedText) {
     try {
         const promptContent = loadPrompt('translate_text_prompt');
         const prompt = `${promptContent} Please translate this text: "${detectedText}"`;
+
+        const response = await openai.chat.completions.create({
+            model: "gpt-4.5-preview",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.7,
+        });
+
+        return response.choices[0].message.content.trim();
+    } catch (error) {
+        console.error('Translation error:', error);
+        throw error;
+    }
+}
+
+async function translateImageName(imageName) {
+    try {
+        const prompt = `Translate the following Slovenian name/phrase into Croatian, ensuring the result is natural and accurate. Follow these rules:
+
+            Remove all underscores (_) from the original text.
+
+            Translate the cleaned term into Croatian.
+
+            If the Croatian translation contains spaces, replace them with _.
+
+            Do not add any other underscores unless they replace a space.
+
+            Return only the final translated name in lowercase, with no additional explanations.
+            translate this imagename : ${imageName}
+        `;
 
         const response = await openai.chat.completions.create({
             model: "gpt-4.5-preview",
@@ -91,14 +120,16 @@ async function generateImage(translatedText, originalImagePath) {
 parentPort.on('message', async (data) => {
     console.log("here worker")
     try {
-        const { imagePath,imageName,excelPath,convertedDir} = data;
+        const { imagePath, imageName, excelPath, convertedDir } = data;
         const detectedText = await detectTextFromImage(imagePath);
-        console.log("detectedText=>",detectedText);
+        console.log("detectedText=>", detectedText);
         const translatedText = await translateText(detectedText);
-        console.log("translatedText=>",translatedText);
+        const translatedImageName = await translateImageName(imageName);
+        console.log("translatedText=>", translatedText);
+        console.log("translatedImageName=>", translatedImageName);
         const workbook = xlsx.readFile(excelPath);
         let worksheet = workbook.Sheets['Results'];
-        
+
         const existingData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
         existingData.push([imageName, detectedText, translatedText]);
 
@@ -108,7 +139,7 @@ parentPort.on('message', async (data) => {
         xlsx.writeFile(workbook, excelPath);
 
         const buffer = await generateImage(translatedText, imagePath);
-        const outputPath = path.join(convertedDir, path.basename(imagePath));
+        const outputPath = path.join(convertedDir, path.basename(`${translatedImageName}.png`));
         fs.writeFileSync(outputPath, buffer);
         parentPort.postMessage({
             success: true,
