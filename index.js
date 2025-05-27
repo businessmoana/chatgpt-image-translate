@@ -24,9 +24,19 @@ if (!fs2.existsSync(excelDir)) {
     fs2.mkdirSync(excelDir);
 }
 
+const convertedDirMain = `./converted_images`;
+if (!fs2.existsSync(convertedDirMain)) {
+    fs2.mkdirSync(convertedDirMain);
+}
+
 const convertedDir = `./converted_images/${getTimeStamp()}`;
 if (!fs2.existsSync(convertedDir)) {
     fs2.mkdirSync(convertedDir);
+}
+
+const imagesDir = `./images`;
+if (!fs2.existsSync(imagesDir)) {
+    fs2.mkdirSync(imagesDir);
 }
 
 async function processImages() {
@@ -42,8 +52,7 @@ async function processImages() {
         xlsx.writeFile(workbook, excelPath);
 
         console.log(`Excel file created: ${excelFileName}`);
-
-        const imagesDir = path.join(__dirname, 'images');
+        
         const files = await fs.readdir(imagesDir);
         const imageFiles = files.filter(file =>
             file.toLowerCase().endsWith('.jpg') ||
