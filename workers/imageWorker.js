@@ -54,7 +54,7 @@ async function translateText(detectedText) {
         const prompt = `${promptContent} Please translate this text: "${detectedText}"`;
 
         const response = await openai.chat.completions.create({
-            model: "gpt-4-turbo",
+            model: "gpt-4.5-preview",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.7,
         });
