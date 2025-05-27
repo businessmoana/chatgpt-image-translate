@@ -68,18 +68,30 @@ async function translateText(detectedText) {
 
 async function translateImageName(imageName) {
     try {
-        const prompt = `Translate the following Slovenian name/phrase into Croatian, ensuring the result is natural and accurate. Follow these rules:
+        const prompt = `You are an expert translator tasked with translating file names from Slovenian to Croatian.
 
-            Remove all underscores (_) from the original text.
+        Instructions:
 
-            Translate the cleaned term into Croatian.
+        Translate only words from Slovenian to Croatian.
 
-            If the Croatian translation contains spaces, replace them with _.
+        Preserve the original filename structure including:
 
-            Do not add any other underscores unless they replace a space.
+        Underscores (_)
 
-            Return only the final translated name in lowercase, with no additional explanations.
-            translate this imagename : ${imageName}
+        Hyphens (-)
+
+        Numbers (e.g., 01, 02, 123)
+
+        File extensions (.png, .jpg, .jpeg, etc.)
+
+        Do not add spaces where they do not exist.
+
+        Do not alter casing (uppercase, lowercase should remain as in the original).
+
+        If the filename has no separators (no spaces, underscores, or hyphens), carefully translate it without inserting any separators.
+
+        Translate accurately, contextually appropriate, and naturally.                                                
+        translate this : ${imageName}
         `;
 
         const response = await openai.chat.completions.create({
@@ -125,6 +137,7 @@ parentPort.on('message', async (data) => {
         console.log("detectedText=>", detectedText);
         const translatedText = await translateText(detectedText);
         const translatedImageName = await translateImageName(imageName);
+        console.log("imageName=>", imageName);
         console.log("translatedText=>", translatedText);
         console.log("translatedImageName=>", translatedImageName);
         const workbook = xlsx.readFile(excelPath);
