@@ -1,19 +1,53 @@
 require('dotenv').config();
+const express = require('express');
+const app = express();
+app.use(express.json());
+
 const { Worker } = require('worker_threads');
+const xlsx = require('xlsx');
+
 const path = require('path');
 const fs = require('fs').promises;
+const fs2 = require('fs');
 
 // Number of concurrent workers
 const NUM_WORKERS = 4;
+const PORT = 3000;
+
+
+const getTimeStamp = () => {
+    const now = new Date();
+    return now.toISOString().replace(/T/, '_').replace(/:/g, '-').split('.')[0];
+};
+const excelDir = './excel_files';
+if (!fs2.existsSync(excelDir)) {
+    fs2.mkdirSync(excelDir);
+}
+
+const convertedDir = `./converted_images/${getTimeStamp()}`;
+if (!fs2.existsSync(convertedDir)) {
+    fs2.mkdirSync(convertedDir);
+}
 
 async function processImages() {
     try {
         // Read all images from the images directory
+        const excelFileName = `translation_results_${getTimeStamp()}.xlsx`;
+        const excelPath = path.join(excelDir, excelFileName);
+
+        let workbook = xlsx.utils.book_new();
+        let headerRow = [['Image Name', 'Detected Text', 'Translated Text']];
+        let worksheet = xlsx.utils.aoa_to_sheet(headerRow);
+        xlsx.utils.book_append_sheet(workbook, worksheet, 'Results');
+        xlsx.writeFile(workbook, excelPath);
+
+        console.log(`Excel file created: ${excelFileName}`);
+
         const imagesDir = path.join(__dirname, 'images');
         const files = await fs.readdir(imagesDir);
-        const imageFiles = files.filter(file => 
-            file.toLowerCase().endsWith('.jpg') || 
-            file.toLowerCase().endsWith('.jpeg') || 
+        const imageFiles = files.filter(file =>
+            file.toLowerCase().endsWith('.jpg') ||
+            file.toLowerCase().endsWith('.jpeg') ||
             file.toLowerCase().endsWith('.png')
         );
 
@@ -27,7 +61,9 @@ async function processImages() {
         // Create a queue of images to process
         const queue = imageFiles.map(file => ({
             imagePath: path.join(imagesDir, file),
-            text: '' // You'll need to implement OCR to extract text from images
+            imageName: file,
+            excelPath,
+            convertedDir
         }));
 
         // Process images using worker threads
@@ -42,8 +78,7 @@ async function processImages() {
 
                 worker.on('message', (result) => {
                     if (result.success) {
-                        console.log(`Successfully processed ${path.basename(result.outputPath)}`);
-                        console.log(`Translated text: ${result.translatedText}`);
+                        // console.log(`Successfully processed ${path.basename(result.outputPath)}`);
                     } else {
                         console.error(`Error processing ${path.basename(imageData.imagePath)}: ${result.error}`);
                     }
@@ -77,5 +112,8 @@ async function processImages() {
     }
 }
 
-// Start processing
-processImages(); 
+
+app.listen(PORT, async () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+    await processImages();
+});
