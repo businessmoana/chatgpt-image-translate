@@ -129,6 +129,21 @@ async function generateImage(translatedText, originalImagePath) {
     }
 }
 
+
+function ensurePngExtension(filename) {
+    // Get the file extension
+    const ext = path.extname(filename).toLowerCase();
+
+    // If there's no extension or it's not .png, add .png
+    if (!ext || ext !== '.png') {
+        // Remove any existing extension and add .png
+        const basename = path.basename(filename, ext); // Removes existing extension
+        filename = `${basename}.png`;
+    }
+
+    return filename;
+}
+
 parentPort.on('message', async (data) => {
     console.log("here worker")
     try {
@@ -151,8 +166,9 @@ parentPort.on('message', async (data) => {
 
         xlsx.writeFile(workbook, excelPath);
 
+        translatedImageName = ensurePngExtension(translatedImageName);
         const buffer = await generateImage(translatedText, imagePath);
-        const outputPath = path.join(convertedDir, path.basename(`${translatedImageName}.png`));
+        const outputPath = path.join(convertedDir, path.basename(translatedImageName));
         fs.writeFileSync(outputPath, buffer);
         parentPort.postMessage({
             success: true,
